@@ -9,6 +9,17 @@ MinHash
     :members:
     :special-members:
 
+Event-time MinHash
+------------------
+
+.. autoclass:: datasketch.EventTimeMinHash
+    :members:
+    :special-members:
+
+.. autoclass:: datasketch.EventTimeMinHashFleet
+    :members:
+    :special-members:
+
 Lean MinHash
 ------------
 

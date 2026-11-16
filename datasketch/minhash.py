@@ -410,6 +410,25 @@ class MinHash:
                 "for 64-bit hash values." % (self.scheme, err)
             ) from err
 
+    def _permuted_hashes(self, value) -> np.ndarray:
+        """Compute the permuted hash values of a single value without
+        updating the state of this MinHash.
+
+        This is exactly the computation :meth:`update` applies before the
+        element-wise minimum. Sketches that maintain their own state on top
+        of the same permutations (e.g. :class:`datasketch.EventTimeMinHash`)
+        use it so their hash values stay bit-compatible with a natively built
+        MinHash over the same content.
+        """
+        hv = self.hashfunc(value)
+        a, b = self.permutations
+        if self.scheme == _SCHEME_LEGACY:
+            return np.bitwise_and((a * hv + b) % _mersenne_prime, _max_hash)
+        # A 1-element array rather than a scalar: numpy warns on scalar
+        # overflow, while array arithmetic wraps silently as intended.
+        hv = _fmix(self._hash_input_array([hv]), _SCHEME_WIDTHS[self.scheme])
+        return a * hv + b
+
     def update(self, b) -> None:
         """Update this MinHash with a new value.
         The value will be hashed using the hash function specified by
@@ -442,16 +461,7 @@ class MinHash:
                 minhash.update("new value")
 
         """
-        hv = self.hashfunc(b)
-        a, b = self.permutations
-        if self.scheme == _SCHEME_LEGACY:
-            phv = np.bitwise_and((a * hv + b) % _mersenne_prime, _max_hash)
-        else:
-            # A 1-element array rather than a scalar: numpy warns on scalar
-            # overflow, while array arithmetic wraps silently as intended.
-            hv = _fmix(self._hash_input_array([hv]), _SCHEME_WIDTHS[self.scheme])
-            phv = a * hv + b
-        self.hashvalues = np.minimum(phv, self.hashvalues)
+        self.hashvalues = np.minimum(self._permuted_hashes(b), self.hashvalues)
 
     def update_batch(self, b: Iterable) -> None:
         """Update this MinHash with new values.
